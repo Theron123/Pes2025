@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../app/router/route_names.dart';
 import '../../../../shared/domain/entities/therapist_entity.dart';
 import '../../../../features/auth/presentation/widgets/loading_overlay.dart';
 import '../bloc/terapeutas_bloc.dart';
@@ -42,6 +44,17 @@ class _TerapeutasListaPageState extends State<TerapeutasListaPage> {
     ));
   }
 
+  void _buscarTerapeutas(String query) {
+    if (query.isEmpty) {
+      _cargarTerapeutas();
+    } else {
+      context.read<TerapeutasBloc>().add(BuscarTerapeutasEvent(
+        textoBusqueda: query,
+        disponibleSolo: _soloDisponibles,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,11 +73,11 @@ class _TerapeutasListaPageState extends State<TerapeutasListaPage> {
         ),
         actions: [
           IconButton(
-            onPressed: () => _mostrarFiltros(),
+            onPressed: _mostrarFiltros,
             icon: const Icon(Icons.filter_list),
           ),
           IconButton(
-            onPressed: () => _crearTerapeuta(),
+            onPressed: _crearTerapeuta,
             icon: const Icon(Icons.add),
           ),
         ],
@@ -145,7 +158,7 @@ class _TerapeutasListaPageState extends State<TerapeutasListaPage> {
         ),
         onChanged: (value) {
           setState(() {});
-          // TODO: Implementar búsqueda en tiempo real
+          _buscarTerapeutas(value);
         },
       ),
     );
@@ -158,7 +171,7 @@ class _TerapeutasListaPageState extends State<TerapeutasListaPage> {
       filtrosActivos.add(
         Chip(
           label: const Text('Solo disponibles'),
-          backgroundColor: AppColors.successGreen.withOpacity(0.1),
+          backgroundColor: AppColors.successGreen.withValues(alpha: 0.1),
           onDeleted: () {
             setState(() {
               _soloDisponibles = false;
@@ -173,7 +186,7 @@ class _TerapeutasListaPageState extends State<TerapeutasListaPage> {
       filtrosActivos.add(
         Chip(
           label: Text(_filtroEspecializacion!.nombre),
-          backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+          backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.1),
           onDeleted: () {
             setState(() {
               _filtroEspecializacion = null;
@@ -331,7 +344,7 @@ class _TerapeutasListaPageState extends State<TerapeutasListaPage> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryBlue.withOpacity(0.1),
+                        color: AppColors.primaryBlue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -552,20 +565,13 @@ class _TerapeutasListaPageState extends State<TerapeutasListaPage> {
   }
 
   void _crearTerapeuta() {
-    // TODO: Navegar a página de crear terapeuta
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Funcionalidad de crear terapeuta pendiente'),
-      ),
-    );
+    context.go(RouteNames.createTherapist);
   }
 
   void _verDetallesTerapeuta(TerapeutaEntity terapeuta) {
-    // TODO: Navegar a página de detalles
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Ver detalles de ${terapeuta.numeroLicencia}'),
-      ),
+    context.go(
+      RouteNames.therapistDetailsPath(terapeuta.id),
+      extra: terapeuta,
     );
   }
 

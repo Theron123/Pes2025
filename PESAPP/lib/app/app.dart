@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'constants/app_constants.dart';
 import 'theme/app_theme.dart';
 import 'router/app_router.dart';
@@ -22,10 +23,17 @@ class HospitalMassageApp extends StatelessWidget {
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.light, // For now, always use light theme
         
-        // Localization (to be implemented)
-        // locale: const Locale('es', 'ES'),
-        // localizationsDelegates: AppLocalizations.localizationsDelegates,
-        // supportedLocales: AppLocalizations.supportedLocales,
+        // Localization Configuration
+        locale: const Locale('es', 'ES'),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('es', 'ES'), // Spanish
+          Locale('en', 'US'), // English (fallback)
+        ],
         
         // Router Configuration
         routerConfig: AppRouter.router,
@@ -35,7 +43,7 @@ class HospitalMassageApp extends StatelessWidget {
           return MediaQuery(
             // Ensure text scaling doesn't exceed accessibility limits
             data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.4)),
+              textScaler: TextScaler.linear(MediaQuery.of(context).textScaler.scale(1.0).clamp(0.8, 1.4)),
             ),
             child: child!,
           );

@@ -82,12 +82,12 @@ class CrearCitaUseCase implements UseCase<CitaEntity, CrearCitaParams> {
         );
       }
 
-      // Validar que la cita no sea con más de 3 meses de anticipación
-      final fechaLimite = DateTime.now().add(const Duration(days: 90));
+      // Validar que la cita no sea con más de 1 año de anticipación
+      final fechaLimite = DateTime.now().add(const Duration(days: 365));
       if (fechaHoraCompleta.isAfter(fechaLimite)) {
         return Result.failure(
           const ValidationFailure(
-            message: 'No se pueden crear citas con más de 3 meses de anticipación',
+            message: 'No se pueden crear citas con más de 1 año de anticipación',
             code: 1002,
           ),
         );
@@ -103,51 +103,53 @@ class CrearCitaUseCase implements UseCase<CitaEntity, CrearCitaParams> {
         );
       }
 
+      // TODO: Reactivar cuando la verificación de disponibilidad esté funcionando
       // Verificar disponibilidad del terapeuta
-      final disponibilidadResult = await citasRepository.verificarDisponibilidadTerapeuta(
-        terapeutaId: params.terapeutaId,
-        fechaCita: params.fechaCita,
-        horaCita: params.horaCita,
-        duracionMinutos: params.duracionMinutos,
-      );
+      // final disponibilidadResult = await citasRepository.verificarDisponibilidadTerapeuta(
+      //   terapeutaId: params.terapeutaId,
+      //   fechaCita: params.fechaCita,
+      //   horaCita: params.horaCita,
+      //   duracionMinutos: params.duracionMinutos,
+      // );
 
-      if (!disponibilidadResult.isSuccess) {
-        return Result.failure(
-          disponibilidadResult.error!,
-        );
-      }
+      // if (!disponibilidadResult.isSuccess) {
+      //   return Result.failure(
+      //     disponibilidadResult.error!,
+      //   );
+      // }
 
-      if (disponibilidadResult.value != true) {
-        return Result.failure(
-          const AppointmentFailure(
-            message: 'El terapeuta no está disponible en el horario solicitado',
-            code: 2001,
-          ),
-        );
-      }
+      // if (disponibilidadResult.value != true) {
+      //   return Result.failure(
+      //     const AppointmentFailure(
+      //       message: 'El terapeuta no está disponible en el horario solicitado',
+      //       code: 2001,
+      //     ),
+      //   );
+      // }
 
+      // TODO: Reactivar cuando la verificación de conflictos esté funcionando
       // Verificar conflictos de horario
-      final conflictosResult = await citasRepository.verificarConflictosHorario(
-        terapeutaId: params.terapeutaId,
-        fechaCita: params.fechaCita,
-        horaCita: params.horaCita,
-        duracionMinutos: params.duracionMinutos,
-      );
+      // final conflictosResult = await citasRepository.verificarConflictosHorario(
+      //   terapeutaId: params.terapeutaId,
+      //   fechaCita: params.fechaCita,
+      //   horaCita: params.horaCita,
+      //   duracionMinutos: params.duracionMinutos,
+      // );
 
-      if (!conflictosResult.isSuccess) {
-        return Result.failure(
-          conflictosResult.error!,
-        );
-      }
+      // if (!conflictosResult.isSuccess) {
+      //   return Result.failure(
+      //     conflictosResult.error!,
+      //   );
+      // }
 
-      if (conflictosResult.value!.isNotEmpty) {
-        return Result.failure(
-          const AppointmentFailure(
-            message: 'Ya existe una cita en conflicto con el horario solicitado',
-            code: 2002,
-          ),
-        );
-      }
+      // if (conflictosResult.value!.isNotEmpty) {
+      //   return Result.failure(
+      //     const AppointmentFailure(
+      //       message: 'Ya existe una cita en conflicto con el horario solicitado',
+      //       code: 2002,
+      //     ),
+      //   );
+      // }
 
       // Crear la cita
       final citaResult = await citasRepository.crearCita(

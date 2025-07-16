@@ -1,7 +1,7 @@
 /// Route names for navigation in the Hospital Massage System
 class RouteNames {
   // Authentication Routes
-  static const String splash = '/';
+  static const String splash = '/'; // Login Screen (Initial Screen)
   static const String signIn = '/sign-in';
   static const String signUp = '/sign-up';
   static const String forgotPassword = '/forgot-password';
@@ -23,6 +23,7 @@ class RouteNames {
 
   // Appointment Routes
   static const String appointments = '/appointments';
+  static const String allAppointments = '/appointments/all';
   static const String appointmentDetails = '/appointments/details';
   static const String createAppointment = '/appointments/create';
   static const String editAppointment = '/appointments/edit';
@@ -32,6 +33,8 @@ class RouteNames {
   // Therapist Management Routes (Admin/Receptionist)
   static const String therapists = '/therapists';
   static const String therapistDetails = '/therapists/details';
+  static const String createTherapist = '/therapists/create';
+  static const String editTherapist = '/therapists/edit';
   static const String therapistProfile = '/therapists/profile';
   static const String therapistAvailability = '/therapists/availability';
   static const String manageTherapist = '/therapists/manage';
@@ -90,7 +93,7 @@ class RouteNames {
       '$editAppointment?$appointmentIdParam=$appointmentId';
 
   static String therapistDetailsPath(String therapistId) =>
-      '$therapistDetails?$therapistIdParam=$therapistId';
+      '$therapistDetails/$therapistId';
 
   static String therapistSchedulePath(String therapistId) =>
       '$therapistSchedule?$therapistIdParam=$therapistId';

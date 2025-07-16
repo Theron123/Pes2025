@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../app/router/route_names.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/domain/entities/user_entity.dart';
 import '../bloc/auth_bloc.dart';
@@ -113,6 +114,16 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  void _handleSuccessfulRegistration(BuildContext context) async {
+    // Esperar un momento para que el usuario vea el mensaje
+    await Future.delayed(const Duration(milliseconds: 800));
+    
+    // Navegar directamente al LoginPage
+    if (context.mounted) {
+      context.go(RouteNames.signIn);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,14 +148,18 @@ class _RegisterPageState extends State<RegisterPage> {
                 backgroundColor: AppColors.errorRed,
               ),
             );
-          } else if (state is AuthAuthenticated) {
+          } else if (state is AuthRegistrationSuccess) {
+            // Mostrar mensaje de éxito
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('¡Registro exitoso! Bienvenido al sistema.'),
+              SnackBar(
+                content: Text(state.mensaje),
                 backgroundColor: AppColors.successGreen,
+                duration: const Duration(seconds: 1),
               ),
             );
-            context.pop();
+            
+            // Navegar inmediatamente al login sin cerrar sesión
+            _handleSuccessfulRegistration(context);
           }
         },
         builder: (context, state) {
@@ -242,10 +257,60 @@ class _RegisterPageState extends State<RegisterPage> {
                 prefixIcon: Icons.lock_outline,
                 obscureText: !_isPasswordVisible,
                 validator: (value) => PasswordValidator.dirty(value ?? '').error?.message,
+                onChanged: (value) => setState(() {}), // Actualizar en tiempo real
                 suffixIcon: IconButton(
                   icon: Icon(_isPasswordVisible ? Icons.visibility_off : Icons.visibility),
                   onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                 ),
+              ),
+              // Agregar información detallada sobre requisitos de contraseña
+              const SizedBox(height: 8),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Container(
+                    width: constraints.maxWidth,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundLight,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Requisitos de contraseña:',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        _buildPasswordRequirement(
+                          '• Mínimo 8 caracteres',
+                          _passwordController.text.length >= 8,
+                        ),
+                        _buildPasswordRequirement(
+                          '• Al menos una letra mayúscula (A-Z)',
+                          _passwordController.text.contains(RegExp(r'[A-Z]')),
+                        ),
+                        _buildPasswordRequirement(
+                          '• Al menos una letra minúscula (a-z)',
+                          _passwordController.text.contains(RegExp(r'[a-z]')),
+                        ),
+                        _buildPasswordRequirement(
+                          '• Al menos un número (0-9)',
+                          _passwordController.text.contains(RegExp(r'[0-9]')),
+                        ),
+                        _buildPasswordRequirement(
+                          '• Al menos un carácter especial (!@#\$%^&*)',
+                          _passwordController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]')),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 16),
               AuthFormField(
@@ -468,6 +533,33 @@ class _RegisterPageState extends State<RegisterPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordRequirement(String text, bool isValid) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          Icon(
+            isValid ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: isValid ? AppColors.successGreen : AppColors.textTertiary,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: isValid ? AppColors.successGreen : AppColors.textSecondary,
+                fontSize: 12,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ],
       ),
     );
   }

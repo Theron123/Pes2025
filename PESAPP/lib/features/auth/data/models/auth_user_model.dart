@@ -1,4 +1,5 @@
 import '../../../../shared/domain/entities/user_entity.dart';
+import '../../../../shared/data/models/user_model.dart';
 import '../../domain/entities/auth_user_entity.dart';
 
 /// Modelo de datos para usuario autenticado
@@ -16,20 +17,31 @@ class UsuarioAutenticadoModel extends UsuarioAutenticadoEntity {
     super.metadatos,
   });
 
-  /// Crear modelo desde JSON (respuesta de Supabase Auth)
+  /// Crear modelo desde JSON (respuesta combinada de Supabase Auth + perfil)
   factory UsuarioAutenticadoModel.fromJson(Map<String, dynamic> json) {
+    final authUser = json['auth_user'] as Map<String, dynamic>;
+    final profileData = json['profile'] as Map<String, dynamic>?;
+    
+    // Crear perfil de usuario si existe
+    UsuarioEntity? perfil;
+    if (profileData != null) {
+      // Usar el método correcto según la estructura de la tabla - la tabla users tiene columnas en español
+      perfil = UsuarioModel.fromJson(profileData);
+    }
+
     return UsuarioAutenticadoModel(
-      id: json['id'] as String,
-      email: json['email'] as String,
-      emailVerificado: json['email_confirmed_at'] != null,
+      id: authUser['id'] as String,
+      email: authUser['email'] as String,
+      perfil: perfil,
+      emailVerificado: authUser['email_confirmed_at'] != null,
       tokenAcceso: json['access_token'] as String?,
       tokenRefresh: json['refresh_token'] as String?,
-      expiraEn: json['expires_at'] != null 
-          ? DateTime.fromMillisecondsSinceEpoch((json['expires_at'] as int) * 1000)
+      expiraEn: authUser['expires_at'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch((authUser['expires_at'] as int) * 1000)
           : null,
-      creadoEn: DateTime.parse(json['created_at'] as String),
-      actualizadoEn: DateTime.parse(json['updated_at'] as String),
-      metadatos: json['app_metadata'] as Map<String, dynamic>?,
+      creadoEn: DateTime.parse(authUser['created_at'] as String),
+      actualizadoEn: DateTime.parse(authUser['updated_at'] as String),
+      metadatos: authUser['app_metadata'] as Map<String, dynamic>?,
     );
   }
 
@@ -61,6 +73,34 @@ class UsuarioAutenticadoModel extends UsuarioAutenticadoEntity {
     String? refreshToken,
     UsuarioEntity? perfil,
   ) {
+    return UsuarioAutenticadoModel(
+      id: user['id'] as String,
+      email: user['email'] as String,
+      perfil: perfil,
+      emailVerificado: user['email_confirmed_at'] != null,
+      tokenAcceso: accessToken,
+      tokenRefresh: refreshToken,
+      expiraEn: user['expires_at'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch((user['expires_at'] as int) * 1000)
+          : null,
+      creadoEn: DateTime.parse(user['created_at'] as String),
+      actualizadoEn: DateTime.parse(user['updated_at'] as String),
+      metadatos: user['app_metadata'] as Map<String, dynamic>?,
+    );
+  }
+
+  /// Crear modelo con perfil de usuario desde datos de la tabla 'users'
+  factory UsuarioAutenticadoModel.fromSupabaseUserWithEnglishProfile(
+    Map<String, dynamic> user,
+    String? accessToken,
+    String? refreshToken,
+    Map<String, dynamic>? profileData,
+  ) {
+    UsuarioEntity? perfil;
+    if (profileData != null) {
+      perfil = UsuarioModel.fromEnglishJson(profileData);
+    }
+
     return UsuarioAutenticadoModel(
       id: user['id'] as String,
       email: user['email'] as String,

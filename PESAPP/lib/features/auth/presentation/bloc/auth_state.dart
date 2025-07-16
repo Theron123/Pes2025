@@ -162,4 +162,18 @@ class AuthSessionValidated extends AuthState {
 
   @override
   List<Object> get props => [esValida];
-} 
+}
+
+/// Estado de registro exitoso (antes de autenticar)
+class AuthRegistrationSuccess extends AuthState {
+  final String mensaje;
+  final String email;
+
+  AuthRegistrationSuccess({
+    required this.mensaje,
+    required this.email,
+  });
+
+  @override
+  List<Object> get props => [mensaje, email];
+}

@@ -49,7 +49,6 @@ abstract class CitasRemoteDataSource {
     EstadoCita? estado,
     DateTime? fechaDesde,
     DateTime? fechaHasta,
-    String? terapeutaId,
     int limite = 50,
     int pagina = 1,
   });
@@ -57,76 +56,51 @@ abstract class CitasRemoteDataSource {
   /// Obtener cita por ID
   Future<CitaModel> obtenerCitaPorId(String citaId);
 
-  /// Obtener citas de hoy
-  Future<List<CitaModel>> obtenerCitasDeHoy({String? terapeutaId});
-
-  /// Obtener próximas citas
-  Future<List<CitaModel>> obtenerProximasCitas({
-    String? pacienteId,
+  /// Actualizar cita existente
+  Future<CitaModel> actualizarCita({
+    required String citaId,
     String? terapeutaId,
-  });
-
-  /// Actualizar estado de cita
-  Future<CitaModel> actualizarEstadoCita({
-    required String citaId,
-    required EstadoCita nuevoEstado,
+    DateTime? fechaCita,
+    DateTime? horaCita,
+    String? tipoMasaje,
+    int? duracionMinutos,
+    EstadoCita? estado,
     String? notas,
-    required String usuarioId,
   });
 
-  /// Cancelar cita
-  Future<CitaModel> cancelarCita({
-    required String citaId,
-    required String razonCancelacion,
-    required String canceladoPor,
-  });
+  /// Eliminar cita
+  Future<void> eliminarCita(String citaId);
 
-  /// Reprogramar cita
-  Future<CitaModel> reprogramarCita({
-    required String citaId,
-    required DateTime nuevaFechaCita,
-    required DateTime nuevaHoraCita,
-    required String terapeutaId,
-    required String reprogramadoPor,
-    String? razonReprogramacion,
-  });
-
-  /// Verificar disponibilidad del terapeuta
-  Future<bool> verificarDisponibilidadTerapeuta({
+  /// Verificar disponibilidad de terapeuta
+  Future<bool> verificarDisponibilidad({
     required String terapeutaId,
     required DateTime fechaCita,
     required DateTime horaCita,
-    required int duracionMinutos,
-    String? citaIdExcluir,
+    int duracionMinutos = 60,
+    String? citaExcluidaId,
   });
 
-  /// Verificar conflictos de horario
-  Future<List<CitaModel>> verificarConflictosHorario({
+  /// Obtener citas de terapeuta para un día específico
+  Future<List<CitaModel>> obtenerCitasTerapeuta({
     required String terapeutaId,
-    required DateTime fechaCita,
-    required DateTime horaCita,
-    required int duracionMinutos,
-    String? citaIdExcluir,
+    required DateTime fecha,
+  });
+
+  /// Stream para escuchar cambios en tiempo real
+  Stream<List<CitaModel>> escucharCitasPorPaciente({
+    required String pacienteId,
+    EstadoCita? estado,
+  });
+
+  /// Stream para escuchar cambios en citas de terapeuta
+  Stream<List<CitaModel>> escucharCitasPorTerapeuta({
+    required String terapeutaId,
+    EstadoCita? estado,
   });
 
   /// Obtener estadísticas de citas
   Future<Map<String, dynamic>> obtenerEstadisticasCitas({
-    required DateTime fechaDesde,
-    required DateTime fechaHasta,
     String? terapeutaId,
-  });
-
-  /// Obtener historial de cambios de una cita
-  Future<List<Map<String, dynamic>>> obtenerHistorialCita(String citaId);
-
-  /// Stream de citas en tiempo real
-  Stream<List<CitaModel>> streamCitasUsuario({
-    required String usuarioId,
-    required RolUsuario rolUsuario,
-  });
-
-  /// Stream de citas para dashboard
-  Stream<List<CitaModel>> streamCitasDashboard({
     DateTime? fechaDesde,
     DateTime? fechaHasta,
   });
@@ -149,6 +123,15 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
     String? notas,
   }) async {
     try {
+      print('DEBUG CitasRemoteDataSource: Iniciando creación de cita');
+      print('  - Paciente ID: $pacienteId');
+      print('  - Terapeuta ID: $terapeutaId');
+      print('  - Fecha: $fechaCita');
+      print('  - Hora: $horaCita');
+      print('  - Tipo: $tipoMasaje');
+      print('  - Duración: $duracionMinutos minutos');
+      print('  - Notas: $notas');
+
       final ahora = DateTime.now();
       final citaModel = CitaModel(
         id: '', // Se generará automáticamente
@@ -164,17 +147,31 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
         actualizadoEn: ahora,
       );
 
+      final jsonData = citaModel.toCreateJson();
+      print('DEBUG: JSON a enviar a Supabase:');
+      print(jsonData);
+
       final response = await supabaseClient
           .from('citas')
-          .insert(citaModel.toCreateJson())
+          .insert(jsonData)
           .select()
           .single();
 
-      return CitaModel.fromJson(response);
+      print('DEBUG: Respuesta de Supabase:');
+      print(response);
+
+      final citaCreada = CitaModel.fromJson(response);
+      print('DEBUG: Cita creada exitosamente con ID: ${citaCreada.id}');
+      
+      return citaCreada;
     } on PostgrestException catch (e) {
+      print('DEBUG: PostgrestException - Código: ${e.code}, Mensaje: ${e.message}');
+      print('DEBUG: Detalles: ${e.details}');
       throw _mapPostgrestException(e);
     } catch (e) {
-      throw const ServerException(message: 'Error al crear la cita');
+      print('DEBUG: Error general al crear cita: $e');
+      print('DEBUG: Tipo de error: ${e.runtimeType}');
+      throw ServerException(message: 'Error al crear la cita: $e');
     }
   }
 
@@ -192,36 +189,36 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
           .from('citas')
           .select('''
             *,
-            terapeutas:therapist_id (
+            terapeutas:terapeuta_id (
               *,
-              usuarios:user_id (
+              usuarios:usuario_id (
                 nombre,
                 apellido,
                 email
               )
             )
           ''')
-          .eq('patient_id', pacienteId);
+          .eq('paciente_id', pacienteId);
 
       // Aplicar filtros
       if (estado != null) {
-        query = query.eq('status', estado.name);
+        query = query.eq('estado', estado.name);
       }
 
       if (fechaDesde != null) {
-        query = query.gte('appointment_date', fechaDesde.toIso8601String().split('T')[0]);
+        query = query.gte('fecha_cita', fechaDesde.toIso8601String().split('T')[0]);
       }
 
       if (fechaHasta != null) {
-        query = query.lte('appointment_date', fechaHasta.toIso8601String().split('T')[0]);
+        query = query.lte('fecha_cita', fechaHasta.toIso8601String().split('T')[0]);
       }
 
       // Aplicar paginación
       final offset = (pagina - 1) * limite;
       final response = await query
           .range(offset, offset + limite - 1)
-          .order('appointment_date', ascending: false)
-          .order('appointment_time', ascending: false);
+          .order('fecha_cita', ascending: false)
+          .order('hora_cita', ascending: false);
 
       return response.map((json) => CitaModel.fromJsonWithJoins(json)).toList();
     } on PostgrestException catch (e) {
@@ -245,33 +242,33 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
           .from('citas')
           .select('''
             *,
-            usuarios:patient_id (
+            usuarios:paciente_id (
               nombre,
               apellido,
               email,
               telefono
             )
           ''')
-          .eq('therapist_id', terapeutaId);
+          .eq('terapeuta_id', terapeutaId);
 
       // Aplicar filtros
       if (estado != null) {
-        query = query.eq('status', estado.name);
+        query = query.eq('estado', estado.name);
       }
 
       if (fechaDesde != null) {
-        query = query.gte('appointment_date', fechaDesde.toIso8601String().split('T')[0]);
+        query = query.gte('fecha_cita', fechaDesde.toIso8601String().split('T')[0]);
       }
 
       if (fechaHasta != null) {
-        query = query.lte('appointment_date', fechaHasta.toIso8601String().split('T')[0]);
+        query = query.lte('fecha_cita', fechaHasta.toIso8601String().split('T')[0]);
       }
 
       final offset = (pagina - 1) * limite;
       final response = await query
           .range(offset, offset + limite - 1)
-          .order('appointment_date', ascending: true)
-          .order('appointment_time', ascending: true);
+          .order('fecha_cita', ascending: true)
+          .order('hora_cita', ascending: true);
 
       return response.map((json) => CitaModel.fromJsonWithJoins(json)).toList();
     } on PostgrestException catch (e) {
@@ -286,7 +283,6 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
     EstadoCita? estado,
     DateTime? fechaDesde,
     DateTime? fechaHasta,
-    String? terapeutaId,
     int limite = 50,
     int pagina = 1,
   }) async {
@@ -295,14 +291,14 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
           .from('citas')
           .select('''
             *,
-            usuarios:patient_id (
+            usuarios:paciente_id (
               nombre,
               apellido,
               email
             ),
-            terapeutas:therapist_id (
+            terapeutas:terapeuta_id (
               *,
-              usuarios:user_id (
+              usuarios:usuario_id (
                 nombre,
                 apellido
               )
@@ -311,30 +307,24 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
 
       // Aplicar todos los filtros
       if (estado != null) {
-        query = query.eq('status', estado.name);
+        query = query.eq('estado', estado.name);
       }
 
       if (fechaDesde != null) {
-        query = query.gte('appointment_date', fechaDesde.toIso8601String().split('T')[0]);
+        query = query.gte('fecha_cita', fechaDesde.toIso8601String().split('T')[0]);
       }
 
       if (fechaHasta != null) {
-        query = query.lte('appointment_date', fechaHasta.toIso8601String().split('T')[0]);
-      }
-
-      if (terapeutaId != null) {
-        query = query.eq('therapist_id', terapeutaId);
+        query = query.lte('fecha_cita', fechaHasta.toIso8601String().split('T')[0]);
       }
 
       final offset = (pagina - 1) * limite;
       final response = await query
           .range(offset, offset + limite - 1)
-          .order('appointment_date', ascending: false)
-          .order('appointment_time', ascending: false);
+          .order('fecha_cita', ascending: false)
+          .order('hora_cita', ascending: false);
 
       return response.map((json) => CitaModel.fromJsonWithJoins(json)).toList();
-    } on PostgrestException catch (e) {
-      throw _mapPostgrestException(e);
     } catch (e) {
       throw const ServerException(message: 'Error al obtener todas las citas');
     }
@@ -347,18 +337,16 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
           .from('citas')
           .select('''
             *,
-            usuarios:patient_id (
+            usuarios:paciente_id (
               nombre,
               apellido,
-              email,
-              telefono
+              email
             ),
-            terapeutas:therapist_id (
+            terapeutas:terapeuta_id (
               *,
-              usuarios:user_id (
+              usuarios:usuario_id (
                 nombre,
-                apellido,
-                email
+                apellido
               )
             )
           ''')
@@ -377,116 +365,40 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
   }
 
   @override
-  Future<List<CitaModel>> obtenerCitasDeHoy({String? terapeutaId}) async {
-    try {
-      final hoy = DateTime.now().toIso8601String().split('T')[0];
-      
-      var query = supabaseClient
-          .from('citas')
-          .select('''
-            *,
-            usuarios:patient_id (
-              nombre,
-              apellido,
-              telefono
-            ),
-            terapeutas:therapist_id (
-              *,
-              usuarios:user_id (
-                nombre,
-                apellido
-              )
-            )
-          ''')
-          .eq('appointment_date', hoy);
-
-      if (terapeutaId != null) {
-        query = query.eq('therapist_id', terapeutaId);
-      }
-
-      final response = await query.order('appointment_time', ascending: true);
-
-      return response.map((json) => CitaModel.fromJsonWithJoins(json)).toList();
-    } on PostgrestException catch (e) {
-      throw _mapPostgrestException(e);
-    } catch (e) {
-      throw const ServerException(message: 'Error al obtener las citas de hoy');
-    }
-  }
-
-  @override
-  Future<List<CitaModel>> obtenerProximasCitas({
-    String? pacienteId,
-    String? terapeutaId,
-  }) async {
-    try {
-      final hoy = DateTime.now().toIso8601String().split('T')[0];
-      final proximaSemana = DateTime.now().add(const Duration(days: 7))
-          .toIso8601String().split('T')[0];
-
-      var query = supabaseClient
-          .from('citas')
-          .select('''
-            *,
-            usuarios:patient_id (
-              nombre,
-              apellido,
-              telefono
-            ),
-            terapeutas:therapist_id (
-              *,
-              usuarios:user_id (
-                nombre,
-                apellido
-              )
-            )
-          ''')
-          .gte('appointment_date', hoy)
-          .lte('appointment_date', proximaSemana)
-          .filter('status', 'in', '(pendiente,confirmada)');
-
-      if (pacienteId != null) {
-        query = query.eq('patient_id', pacienteId);
-      }
-
-      if (terapeutaId != null) {
-        query = query.eq('therapist_id', terapeutaId);
-      }
-
-      final response = await query
-          .order('appointment_date', ascending: true)
-          .order('appointment_time', ascending: true);
-
-      return response.map((json) => CitaModel.fromJsonWithJoins(json)).toList();
-    } on PostgrestException catch (e) {
-      throw _mapPostgrestException(e);
-    } catch (e) {
-      throw const ServerException(message: 'Error al obtener las próximas citas');
-    }
-  }
-
-  @override
-  Future<CitaModel> actualizarEstadoCita({
+  Future<CitaModel> actualizarCita({
     required String citaId,
-    required EstadoCita nuevoEstado,
+    String? terapeutaId,
+    DateTime? fechaCita,
+    DateTime? horaCita,
+    String? tipoMasaje,
+    int? duracionMinutos,
+    EstadoCita? estado,
     String? notas,
-    required String usuarioId,
   }) async {
     try {
-      final updateData = <String, dynamic>{
-        'status': nuevoEstado.name,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
+      final updateData = <String, dynamic>{};
+      if (terapeutaId != null) {
+        updateData['terapeuta_id'] = terapeutaId;
+      }
+      if (fechaCita != null) {
+        updateData['fecha_cita'] = fechaCita.toIso8601String().split('T')[0];
+      }
+      if (horaCita != null) {
+        updateData['hora_cita'] = _formatTimeToString(horaCita);
+      }
+      if (tipoMasaje != null) {
+        updateData['tipo_masaje'] = tipoMasaje;
+      }
+      if (duracionMinutos != null) {
+        updateData['duracion_minutos'] = duracionMinutos;
+      }
+      if (estado != null) {
+        updateData['estado'] = estado.name;
+      }
       if (notas != null) {
-        updateData['notes'] = notas;
+        updateData['notas'] = notas;
       }
-
-      // Campos específicos para cancelación
-      if (nuevoEstado == EstadoCita.cancelada) {
-        updateData['canceled_at'] = DateTime.now().toIso8601String();
-        updateData['canceled_by'] = usuarioId;
-      }
+      updateData['updated_at'] = DateTime.now().toIso8601String();
 
       final response = await supabaseClient
           .from('citas')
@@ -502,83 +414,34 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
       }
       throw _mapPostgrestException(e);
     } catch (e) {
-      throw const ServerException(message: 'Error al actualizar el estado de la cita');
+      throw const ServerException(message: 'Error al actualizar la cita');
     }
   }
 
   @override
-  Future<CitaModel> cancelarCita({
-    required String citaId,
-    required String razonCancelacion,
-    required String canceladoPor,
-  }) async {
+  Future<void> eliminarCita(String citaId) async {
     try {
-      final response = await supabaseClient
+      await supabaseClient
           .from('citas')
-          .update({
-            'status': EstadoCita.cancelada.name,
-            'canceled_at': DateTime.now().toIso8601String(),
-            'canceled_by': canceladoPor,
-            'cancellation_reason': razonCancelacion,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', citaId)
-          .select()
-          .single();
-
-      return CitaModel.fromJson(response);
+          .delete()
+          .eq('id', citaId);
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST116') {
         throw const NotFoundException(message: 'Cita no encontrada');
       }
       throw _mapPostgrestException(e);
     } catch (e) {
-      throw const ServerException(message: 'Error al cancelar la cita');
+      throw const ServerException(message: 'Error al eliminar la cita');
     }
   }
 
   @override
-  Future<CitaModel> reprogramarCita({
-    required String citaId,
-    required DateTime nuevaFechaCita,
-    required DateTime nuevaHoraCita,
-    required String terapeutaId,
-    required String reprogramadoPor,
-    String? razonReprogramacion,
-  }) async {
-    try {
-      final response = await supabaseClient
-          .from('citas')
-          .update({
-            'appointment_date': nuevaFechaCita.toIso8601String().split('T')[0],
-            'appointment_time': _formatTimeToString(nuevaHoraCita),
-            'therapist_id': terapeutaId,
-            'status': EstadoCita.pendiente.name, // Vuelve a pendiente después de reprogramar
-            'updated_at': DateTime.now().toIso8601String(),
-            if (razonReprogramacion != null) 'notes': razonReprogramacion,
-          })
-          .eq('id', citaId)
-          .select()
-          .single();
-
-      return CitaModel.fromJson(response);
-    } on PostgrestException catch (e) {
-      if (e.code == 'PGRST116') {
-        throw const NotFoundException(message: 'Cita no encontrada');
-      }
-      throw _mapPostgrestException(e);
-    } catch (e) {
-      throw const ServerException(message: 'Error al reprogramar la cita');
-    }
-  }
-
-  @override
-  Future<bool> verificarDisponibilidadTerapeuta({
+  Future<bool> verificarDisponibilidad({
     required String terapeutaId,
     required DateTime fechaCita,
     required DateTime horaCita,
-    required int duracionMinutos,
-    String? citaIdExcluir,
+    int duracionMinutos = 60,
+    String? citaExcluidaId,
   }) async {
     try {
       final conflictos = await verificarConflictosHorario(
@@ -586,7 +449,7 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
         fechaCita: fechaCita,
         horaCita: horaCita,
         duracionMinutos: duracionMinutos,
-        citaIdExcluir: citaIdExcluir,
+        citaIdExcluir: citaExcluidaId,
       );
 
       return conflictos.isEmpty;
@@ -595,7 +458,7 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
     }
   }
 
-  @override
+  /// Verificar conflictos de horario
   Future<List<CitaModel>> verificarConflictosHorario({
     required String terapeutaId,
     required DateTime fechaCita,
@@ -609,9 +472,9 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
       var query = supabaseClient
           .from('citas')
           .select()
-          .eq('therapist_id', terapeutaId)
-          .eq('appointment_date', fechaStr)
-          .filter('status', 'in', '(pendiente,confirmada,enProgreso)');
+          .eq('terapeuta_id', terapeutaId)
+          .eq('fecha_cita', fechaStr)
+          .filter('estado', 'in', '(pendiente,confirmada,en_progreso)');
 
       if (citaIdExcluir != null) {
         query = query.neq('id', citaIdExcluir);
@@ -643,166 +506,136 @@ class CitasRemoteDataSourceImpl implements CitasRemoteDataSource {
   }
 
   @override
+  Future<List<CitaModel>> obtenerCitasTerapeuta({
+    required String terapeutaId,
+    required DateTime fecha,
+  }) async {
+    try {
+      final fechaStr = fecha.toIso8601String().split('T')[0];
+
+      var query = supabaseClient
+          .from('citas')
+          .select('''
+            *,
+            usuarios:paciente_id (
+              nombre,
+              apellido,
+              telefono
+            ),
+            terapeutas:terapeuta_id (
+              *,
+              usuarios:usuario_id (
+                nombre,
+                apellido
+              )
+            )
+          ''')
+          .eq('terapeuta_id', terapeutaId)
+          .eq('fecha_cita', fechaStr)
+          .filter('estado', 'in', '(pendiente,confirmada,en_progreso)');
+
+      final response = await query;
+
+      return response.map((json) => CitaModel.fromJsonWithJoins(json)).toList();
+    } on PostgrestException catch (e) {
+      throw _mapPostgrestException(e);
+    } catch (e) {
+      throw const ServerException(message: 'Error al obtener citas del terapeuta por fecha');
+    }
+  }
+
+  @override
+  Stream<List<CitaModel>> escucharCitasPorPaciente({
+    required String pacienteId,
+    EstadoCita? estado,
+  }) {
+    try {
+      return supabaseClient
+          .from('citas')
+          .stream(primaryKey: ['id'])
+          .eq('paciente_id', pacienteId)
+          .order('fecha_cita')
+          .map((data) => data.map((json) => CitaModel.fromJson(json)).toList());
+    } catch (e) {
+      throw const ServerException(message: 'Error en stream de citas por paciente');
+    }
+  }
+
+  @override
+  Stream<List<CitaModel>> escucharCitasPorTerapeuta({
+    required String terapeutaId,
+    EstadoCita? estado,
+  }) {
+    try {
+      return supabaseClient
+          .from('citas')
+          .stream(primaryKey: ['id'])
+          .eq('terapeuta_id', terapeutaId)
+          .order('fecha_cita')
+          .map((data) => data.map((json) => CitaModel.fromJson(json)).toList());
+    } catch (e) {
+      throw const ServerException(message: 'Error en stream de citas por terapeuta');
+    }
+  }
+
+  @override
   Future<Map<String, dynamic>> obtenerEstadisticasCitas({
-    required DateTime fechaDesde,
-    required DateTime fechaHasta,
     String? terapeutaId,
+    DateTime? fechaDesde,
+    DateTime? fechaHasta,
   }) async {
     try {
       var query = supabaseClient
           .from('citas')
-          .select('status')
-          .gte('appointment_date', fechaDesde.toIso8601String().split('T')[0])
-          .lte('appointment_date', fechaHasta.toIso8601String().split('T')[0]);
+          .select('estado')
+          .gte('fecha_cita', fechaDesde?.toIso8601String().split('T')[0] ?? '2000-01-01')
+          .lte('fecha_cita', fechaHasta?.toIso8601String().split('T')[0] ?? DateTime.now().toIso8601String().split('T')[0]);
 
       if (terapeutaId != null) {
-        query = query.eq('therapist_id', terapeutaId);
+        query = query.eq('terapeuta_id', terapeutaId);
       }
 
       final response = await query;
 
-      // Calcular estadísticas
+      // Contar por estado
       final estadisticas = <String, int>{};
-      for (final estado in EstadoCita.values) {
-        estadisticas[estado.name] = 0;
-      }
-
       for (final cita in response) {
-        final estado = cita['status'] as String;
+        final estado = cita['estado'] as String;
         estadisticas[estado] = (estadisticas[estado] ?? 0) + 1;
       }
 
-      final total = response.length;
-      
       return {
-        'total': total,
+        'total': response.length,
         'por_estado': estadisticas,
-        'tasa_completado': total > 0 
-            ? (estadisticas['completada']! / total) 
-            : 0.0,
-        'tasa_cancelacion': total > 0 
-            ? (estadisticas['cancelada']! / total) 
-            : 0.0,
-        'tasa_no_show': total > 0 
-            ? (estadisticas['noShow']! / total) 
-            : 0.0,
+        'fecha_consulta': DateTime.now().toIso8601String(),
       };
     } on PostgrestException catch (e) {
       throw _mapPostgrestException(e);
     } catch (e) {
-      throw const ServerException(message: 'Error al obtener estadísticas');
+      throw const ServerException(message: 'Error al obtener estadísticas de citas');
     }
   }
 
-  @override
-  Future<List<Map<String, dynamic>>> obtenerHistorialCita(String citaId) async {
-    try {
-      // Consultar tabla de auditoría para obtener historial de cambios
-      final response = await supabaseClient
-          .from('registros_auditoria')
-          .select('''
-            *,
-            usuarios:user_id (nombre, apellido)
-          ''')
-          .eq('record_id', citaId)
-          .eq('table_name', 'citas')
-          .order('created_at', ascending: false);
-
-      return response.map((json) => json).toList();
-    } on PostgrestException catch (e) {
-      throw _mapPostgrestException(e);
-    } catch (e) {
-      throw const ServerException(message: 'Error al obtener historial de la cita');
-    }
-  }
-
-  @override
-  Stream<List<CitaModel>> streamCitasUsuario({
-    required String usuarioId,
-    required RolUsuario rolUsuario,
-  }) {
-    try {
-      String columnaFiltro;
-      switch (rolUsuario) {
-        case RolUsuario.paciente:
-          columnaFiltro = 'patient_id';
-          break;
-        case RolUsuario.terapeuta:
-          columnaFiltro = 'therapist_id';
-          break;
-        default:
-          // Para admin y recepcionista, obtener todas las citas
-          return supabaseClient
-              .from('citas')
-              .stream(primaryKey: ['id'])
-              .order('appointment_date')
-              .map((data) => data.map((json) => CitaModel.fromJson(json)).toList());
-      }
-
-      return supabaseClient
-          .from('citas')
-          .stream(primaryKey: ['id'])
-          .eq(columnaFiltro, usuarioId)
-          .order('appointment_date')
-          .map((data) => data.map((json) => CitaModel.fromJson(json)).toList());
-    } catch (e) {
-      throw const ServerException(message: 'Error en stream de citas');
-    }
-  }
-
-  @override
-  Stream<List<CitaModel>> streamCitasDashboard({
-    DateTime? fechaDesde,
-    DateTime? fechaHasta,
-  }) {
-    try {
-      return supabaseClient
-          .from('citas')
-          .stream(primaryKey: ['id'])
-          .order('appointment_date')
-          .map((data) {
-            final citas = data.map((json) => CitaModel.fromJson(json)).toList();
-            
-            // Aplicar filtros de fecha en el lado del cliente
-            if (fechaDesde != null || fechaHasta != null) {
-              return citas.where((cita) {
-                if (fechaDesde != null && cita.fechaCita.isBefore(fechaDesde)) {
-                  return false;
-                }
-                if (fechaHasta != null && cita.fechaCita.isAfter(fechaHasta)) {
-                  return false;
-                }
-                return true;
-              }).toList();
-            }
-            
-            return citas;
-          });
-    } catch (e) {
-      throw const ServerException(message: 'Error en stream del dashboard');
-    }
-  }
-
-  /// Formatear hora a string formato HH:MM:SS
-  String _formatTimeToString(DateTime time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute:00';
-  }
-
-  /// Mapear excepciones de Postgrest a excepciones específicas del dominio
+  /// Mapea excepciones de PostgrestException a excepciones de dominio
   Exception _mapPostgrestException(PostgrestException e) {
     switch (e.code) {
-      case '23505': // Violación de restricción única
-        return const ValidationException(message: 'Ya existe una cita con esos datos');
-      case '23503': // Violación de clave foránea
-        return const ValidationException(message: 'Paciente o terapeuta no válido');
-      case '23514': // Violación de restricción de verificación
-        return const ValidationException(message: 'Datos de cita no válidos');
-      case 'PGRST116': // No se encontró el registro
-        return const NotFoundException(message: 'Cita no encontrada');
+      case '23503':
+        return const ServerException(message: 'Referencia no válida. Verifica que el paciente y terapeuta existan.');
+      case '23505':
+        return const ServerException(message: 'Ya existe una cita en este horario para el terapeuta.');
+      case '42P01':
+        return const ServerException(message: 'Error de configuración de base de datos.');
+      case 'PGRST116':
+        return const NotFoundException(message: 'Registro no encontrado.');
       default:
-        return ServerException(message: e.message);
+        return ServerException(message: 'Error del servidor: ${e.message}');
     }
+  }
+
+  /// Convierte DateTime a string de tiempo para base de datos
+  String _formatTimeToString(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:'
+           '${dateTime.minute.toString().padLeft(2, '0')}:'
+           '${dateTime.second.toString().padLeft(2, '0')}';
   }
 } 

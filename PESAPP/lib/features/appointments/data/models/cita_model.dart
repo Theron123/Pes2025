@@ -29,25 +29,25 @@ class CitaModel extends CitaEntity {
   factory CitaModel.fromJson(Map<String, dynamic> json) {
     return CitaModel(
       id: json['id'] as String,
-      pacienteId: json['patient_id'] as String,
-      terapeutaId: json['therapist_id'] as String,
-      fechaCita: DateTime.parse(json['appointment_date'] as String),
-      horaCita: _parseTimeFromString(json['appointment_time'] as String),
-      duracionMinutos: json['duration_minutes'] as int? ?? 60,
-      tipoMasaje: json['massage_type'] as String,
+      pacienteId: json['paciente_id'] as String,
+      terapeutaId: json['terapeuta_id'] as String,
+      fechaCita: DateTime.parse(json['fecha_cita'] as String),
+      horaCita: _parseTimeFromString(json['hora_cita'] as String),
+      duracionMinutos: json['duracion_minutos'] as int? ?? 60,
+      tipoMasaje: json['tipo_masaje'] as String,
       estado: EstadoCita.values.firstWhere(
-        (e) => e.name == json['status'],
+        (e) => e.name == json['estado'],
         orElse: () => EstadoCita.pendiente,
       ),
-      notas: json['notes'] as String?,
-      creadoPor: json['created_by'] as String?,
+      notas: json['notas'] as String?,
+      creadoPor: json['creado_por'] as String?,
       creadoEn: DateTime.parse(json['created_at'] as String),
       actualizadoEn: DateTime.parse(json['updated_at'] as String),
-      canceladoEn: json['canceled_at'] != null 
-          ? DateTime.parse(json['canceled_at'] as String)
+      canceladoEn: json['cancelado_en'] != null 
+          ? DateTime.parse(json['cancelado_en'] as String)
           : null,
-      canceladoPor: json['canceled_by'] as String?,
-      razonCancelacion: json['cancellation_reason'] as String?,
+      canceladoPor: json['cancelado_por'] as String?,
+      razonCancelacion: json['razon_cancelacion'] as String?,
     );
   }
 
@@ -64,51 +64,62 @@ class CitaModel extends CitaEntity {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'patient_id': pacienteId,
-      'therapist_id': terapeutaId,
-      'appointment_date': fechaCita.toIso8601String().split('T')[0], // Solo fecha
-      'appointment_time': _formatTimeToString(horaCita),
-      'duration_minutes': duracionMinutos,
-      'massage_type': tipoMasaje,
-      'status': estado.name,
-      'notes': notas,
-      'created_by': creadoPor,
+      'paciente_id': pacienteId,
+      'terapeuta_id': terapeutaId,
+      'fecha_cita': fechaCita.toIso8601String().split('T')[0], // Solo fecha
+      'hora_cita': _formatTimeToString(horaCita),
+      'duracion_minutos': duracionMinutos,
+      'tipo_masaje': tipoMasaje,
+      'estado': estado.name,
+      'notas': notas,
+      'creado_por': creadoPor,
       'created_at': creadoEn.toIso8601String(),
       'updated_at': actualizadoEn.toIso8601String(),
-      'canceled_at': canceladoEn?.toIso8601String(),
-      'canceled_by': canceladoPor,
-      'cancellation_reason': razonCancelacion,
+      'cancelado_en': canceladoEn?.toIso8601String(),
+      'cancelado_por': canceladoPor,
+      'razon_cancelacion': razonCancelacion,
     };
   }
 
   /// Convertir a JSON para crear nueva cita (sin IDs generados automáticamente)
   Map<String, dynamic> toCreateJson() {
-    return {
-      'patient_id': pacienteId,
-      'therapist_id': terapeutaId,
-      'appointment_date': fechaCita.toIso8601String().split('T')[0],
-      'appointment_time': _formatTimeToString(horaCita),
-      'duration_minutes': duracionMinutos,
-      'massage_type': tipoMasaje,
-      'status': estado.name,
-      'notes': notas,
-      'created_by': creadoPor,
+    final json = <String, dynamic>{
+      'paciente_id': pacienteId,
+      'terapeuta_id': terapeutaId,
+      'fecha_cita': fechaCita.toIso8601String().split('T')[0],
+      'hora_cita': _formatTimeToString(horaCita),
+      'duracion_minutos': duracionMinutos,
+      'tipo_masaje': tipoMasaje,
+      'estado': estado.name,
     };
+
+    // Añadir campos opcionales solo si no son null
+    if (notas != null && notas!.isNotEmpty) {
+      json['notas'] = notas!;
+    }
+    
+    if (creadoPor != null && creadoPor!.isNotEmpty) {
+      json['creado_por'] = creadoPor!;
+    }
+
+    print('DEBUG CitaModel.toCreateJson(): $json');
+    
+    return json;
   }
 
   /// Convertir a JSON para actualizar cita (solo campos modificables)
   Map<String, dynamic> toUpdateJson() {
     return {
-      'appointment_date': fechaCita.toIso8601String().split('T')[0],
-      'appointment_time': _formatTimeToString(horaCita),
-      'duration_minutes': duracionMinutos,
-      'massage_type': tipoMasaje,
-      'status': estado.name,
-      'notes': notas,
+      'fecha_cita': fechaCita.toIso8601String().split('T')[0],
+      'hora_cita': _formatTimeToString(horaCita),
+      'duracion_minutos': duracionMinutos,
+      'tipo_masaje': tipoMasaje,
+      'estado': estado.name,
+      'notas': notas,
       'updated_at': DateTime.now().toIso8601String(),
-      'canceled_at': canceladoEn?.toIso8601String(),
-      'canceled_by': canceladoPor,
-      'cancellation_reason': razonCancelacion,
+      'cancelado_en': canceladoEn?.toIso8601String(),
+      'cancelado_por': canceladoPor,
+      'razon_cancelacion': razonCancelacion,
     };
   }
 

@@ -78,17 +78,17 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
   }) async {
     try {
       final datosCreacion = {
-        'user_id': usuarioId,
-        'license_number': numeroLicencia,
-        'specializations': especializaciones.map((e) => e.name).toList(),
-        'working_hours': {},
-        'is_available': disponible,
+        'usuario_id': usuarioId,
+        'numero_licencia': numeroLicencia,
+        'especializaciones': especializaciones.map((e) => e.name).toList(),
+        'horario_trabajo': {},
+        'disponible': disponible,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       };
 
       final response = await _supabaseClient
-          .from('therapists')
+          .from('terapeutas')
           .insert(datosCreacion)
           .select()
           .single();
@@ -96,13 +96,13 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
       return TerapeutaModel.fromJson(response);
     } on PostgrestException catch (e) {
       throw DatabaseException(
-        message: 'Error al crear terapeuta: \${e.message}',
+        message: 'Error al crear terapeuta: ${e.message}',
         code: 4003,
       );
     } catch (e) {
       if (e is DatabaseException) rethrow;
       throw DatabaseException(
-        message: 'Error inesperado al crear terapeuta: \${e.toString()}',
+        message: 'Error inesperado al crear terapeuta: ${e.toString()}',
         code: 4004,
       );
     }
@@ -112,7 +112,7 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
   Future<TerapeutaModel> obtenerTerapeutaPorId(String terapeutaId) async {
     try {
       final response = await _supabaseClient
-          .from('therapists')
+          .from('terapeutas')
           .select('*')
           .eq('id', terapeutaId)
           .single();
@@ -120,13 +120,13 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
       return TerapeutaModel.fromJson(response);
     } on PostgrestException catch (e) {
       throw DatabaseException(
-        message: 'Error al obtener terapeuta: \${e.message}',
+        message: 'Error al obtener terapeuta: ${e.message}',
         code: 4006,
       );
     } catch (e) {
       if (e is DatabaseException) rethrow;
       throw DatabaseException(
-        message: 'Error inesperado al obtener terapeuta: \${e.toString()}',
+        message: 'Error inesperado al obtener terapeuta: ${e.toString()}',
         code: 4007,
       );
     }
@@ -136,21 +136,21 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
   Future<TerapeutaModel> obtenerTerapeutaPorUsuarioId(String usuarioId) async {
     try {
       final response = await _supabaseClient
-          .from('therapists')
+          .from('terapeutas')
           .select('*')
-          .eq('user_id', usuarioId)
+          .eq('usuario_id', usuarioId)
           .single();
 
       return TerapeutaModel.fromJson(response);
     } on PostgrestException catch (e) {
       throw DatabaseException(
-        message: 'Error al obtener terapeuta por usuario: \${e.message}',
+        message: 'Error al obtener terapeuta por usuario: ${e.message}',
         code: 4009,
       );
     } catch (e) {
       if (e is DatabaseException) rethrow;
       throw DatabaseException(
-        message: 'Error inesperado al obtener terapeuta por usuario: \${e.toString()}',
+        message: 'Error inesperado al obtener terapeuta por usuario: ${e.toString()}',
         code: 4010,
       );
     }
@@ -164,32 +164,51 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
     int pagina = 1,
   }) async {
     try {
+      print('DEBUG TerapeutasRemoteDataSource: Obteniendo terapeutas');
+      print('  - Disponible solo: $disponibleSolo');
+      print('  - Especialización: $especializacion');
+      print('  - Límite: $limite');
+      print('  - Página: $pagina');
+      
       final offset = (pagina - 1) * limite;
 
       var query = _supabaseClient
-          .from('therapists')
+          .from('terapeutas')
           .select('*');
 
       if (disponibleSolo) {
-        query = query.eq('is_available', true);
+        query = query.eq('disponible', true);
       }
 
       final response = await query
           .range(offset, offset + limite - 1)
           .order('created_at', ascending: false);
 
-      return response
+      print('DEBUG: Respuesta de Supabase para terapeutas:');
+      print('  - Número de registros: ${response.length}');
+      print('  - Datos: $response');
+
+      final terapeutas = response
           .map<TerapeutaModel>((json) => TerapeutaModel.fromJson(json))
           .toList();
+          
+      print('DEBUG: Terapeutas procesados: ${terapeutas.length}');
+      for (final terapeuta in terapeutas) {
+        print('  - ID: ${terapeuta.id}, Disponible: ${terapeuta.disponible}');
+      }
+
+      return terapeutas;
     } on PostgrestException catch (e) {
+      print('DEBUG: PostgrestException en obtenerTerapeutas: ${e.message}');
       throw DatabaseException(
-        message: 'Error al obtener terapeutas: \${e.message}',
+        message: 'Error al obtener terapeutas: ${e.message}',
         code: 4011,
       );
     } catch (e) {
+      print('DEBUG: Error general en obtenerTerapeutas: $e');
       if (e is DatabaseException) rethrow;
       throw DatabaseException(
-        message: 'Error inesperado al obtener terapeutas: \${e.toString()}',
+        message: 'Error inesperado al obtener terapeutas: ${e.toString()}',
         code: 4012,
       );
     }
@@ -209,20 +228,20 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
       };
 
       if (numeroLicencia != null) {
-        datosActualizacion['license_number'] = numeroLicencia;
+        datosActualizacion['numero_licencia'] = numeroLicencia;
       }
 
       if (especializaciones != null) {
-        datosActualizacion['specializations'] = 
+        datosActualizacion['especializaciones'] = 
             especializaciones.map((e) => e.name).toList();
       }
 
       if (disponible != null) {
-        datosActualizacion['is_available'] = disponible;
+        datosActualizacion['disponible'] = disponible;
       }
 
       final response = await _supabaseClient
-          .from('therapists')
+          .from('terapeutas')
           .update(datosActualizacion)
           .eq('id', terapeutaId)
           .select()
@@ -231,13 +250,13 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
       return TerapeutaModel.fromJson(response);
     } on PostgrestException catch (e) {
       throw DatabaseException(
-        message: 'Error al actualizar terapeuta: \${e.message}',
+        message: 'Error al actualizar terapeuta: ${e.message}',
         code: 4015,
       );
     } catch (e) {
       if (e is DatabaseException) rethrow;
       throw DatabaseException(
-        message: 'Error inesperado al actualizar terapeuta: \${e.toString()}',
+        message: 'Error inesperado al actualizar terapeuta: ${e.toString()}',
         code: 4016,
       );
     }
@@ -254,13 +273,13 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
       return true;
     } on PostgrestException catch (e) {
       throw DatabaseException(
-        message: 'Error al verificar disponibilidad: \${e.message}',
+        message: 'Error al verificar disponibilidad: ${e.message}',
         code: 4017,
       );
     } catch (e) {
       if (e is DatabaseException) rethrow;
       throw DatabaseException(
-        message: 'Error inesperado al verificar disponibilidad: \${e.toString()}',
+        message: 'Error inesperado al verificar disponibilidad: ${e.toString()}',
         code: 4018,
       );
     }
@@ -273,9 +292,9 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
   }) async {
     try {
       var query = _supabaseClient
-          .from('therapists')
+          .from('terapeutas')
           .select('id')
-          .eq('license_number', numeroLicencia);
+          .eq('numero_licencia', numeroLicencia);
 
       if (terapeutaIdExcluir != null) {
         query = query.neq('id', terapeutaIdExcluir);
@@ -285,13 +304,13 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
       return response.isNotEmpty;
     } on PostgrestException catch (e) {
       throw DatabaseException(
-        message: 'Error al verificar licencia: \${e.message}',
+        message: 'Error al verificar licencia: ${e.message}',
         code: 4025,
       );
     } catch (e) {
       if (e is DatabaseException) rethrow;
       throw DatabaseException(
-        message: 'Error inesperado al verificar licencia: \${e.toString()}',
+        message: 'Error inesperado al verificar licencia: ${e.toString()}',
         code: 4026,
       );
     }
@@ -325,20 +344,20 @@ class TerapeutasRemoteDataSourceImpl implements TerapeutasRemoteDataSource {
   Future<bool> eliminarTerapeuta(String terapeutaId) async {
     try {
       await _supabaseClient
-          .from('therapists')
-          .update({'is_available': false})
+          .from('terapeutas')
+          .update({'disponible': false})
           .eq('id', terapeutaId);
 
       return true;
     } on PostgrestException catch (e) {
       throw DatabaseException(
-        message: 'Error al eliminar terapeuta: \${e.message}',
+        message: 'Error al eliminar terapeuta: ${e.message}',
         code: 4021,
       );
     } catch (e) {
       if (e is DatabaseException) rethrow;
       throw DatabaseException(
-        message: 'Error inesperado al eliminar terapeuta: \${e.toString()}',
+        message: 'Error inesperado al eliminar terapeuta: ${e.toString()}',
         code: 4022,
       );
     }

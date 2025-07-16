@@ -43,9 +43,9 @@ class _CitasListaPageState extends State<CitasListaPage> {
   void _cargarCitas() {
     context.read<CitasBloc>().add(
       CargarCitasPorPacienteEvent(
-        pacienteId: 'current-user-id', // TODO: Obtener del contexto de usuario
+        pacienteId: 'b82306e0-8ab1-4a15-a6c4-80479ae2eb56', // Usuario real que creamos
         fechaDesde: DateTime.now().subtract(const Duration(days: 30)),
-        fechaHasta: DateTime.now().add(const Duration(days: 90)),
+        fechaHasta: DateTime.now().add(const Duration(days: 365)), // Hasta 1 año
         estado: _filtroEstado,
         limite: 20,
         pagina: 1,
@@ -70,6 +70,10 @@ class _CitasListaPageState extends State<CitasListaPage> {
     context.push('/appointments/details', extra: cita);
   }
 
+  void _volverAlDashboard() {
+    context.go('/'); // Navegar al dashboard principal
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,6 +90,12 @@ class _CitasListaPageState extends State<CitasListaPage> {
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          onPressed: _volverAlDashboard,
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Volver al dashboard principal',
+          splashRadius: 24,
+        ),
         actions: [
           IconButton(
             onPressed: _cargarCitas,

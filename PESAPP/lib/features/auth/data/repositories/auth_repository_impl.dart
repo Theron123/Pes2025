@@ -1,5 +1,6 @@
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/services/email_service.dart';
 import '../../../../shared/domain/entities/user_entity.dart';
 import '../../domain/entities/auth_user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -16,7 +17,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<UsuarioAutenticadoEntity?>> obtenerUsuarioActual() async {
     try {
-      final usuario = await remoteDataSource.obtenerUsuarioActual();
+      final usuario = await remoteDataSource.getCurrentUser();
       return Result.success(usuario?.toEntity());
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
@@ -29,7 +30,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
   }) async {
     try {
-      final usuario = await remoteDataSource.iniciarSesion(
+      final usuario = await remoteDataSource.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -50,15 +51,23 @@ class AuthRepositoryImpl implements AuthRepository {
     DateTime? fechaNacimiento,
   }) async {
     try {
-      final usuario = await remoteDataSource.registrarUsuario(
+      final usuario = await remoteDataSource.signUpWithEmailAndPassword(
         email: email,
         password: password,
+        firstName: nombre,
+        lastName: apellido,
+        role: rol.name, // Convertir enum a string
+        phone: telefono,
+      );
+
+      // Enviar correo de bienvenida automáticamente usando el servicio independiente
+      await EmailService.enviarCorreoBienvenida(
+        destinatario: email,
         nombre: nombre,
         apellido: apellido,
-        rol: rol,
-        telefono: telefono,
-        fechaNacimiento: fechaNacimiento,
+        rol: rol.name,
       );
+
       return Result.success(usuario.toEntity());
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
@@ -68,7 +77,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> cerrarSesion() async {
     try {
-      await remoteDataSource.cerrarSesion();
+      await remoteDataSource.signOut();
       return Result.success(null);
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
@@ -78,7 +87,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> enviarEmailVerificacion() async {
     try {
-      await remoteDataSource.enviarEmailVerificacion();
+      // Email verification no longer needed - users are auto-verified
       return Result.success(null);
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
@@ -88,7 +97,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> verificarEmail({required String token}) async {
     try {
-      await remoteDataSource.verificarEmail(token: token);
+      // Email verification no longer needed - users are auto-verified
       return Result.success(null);
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
@@ -140,8 +149,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<Config2FAEntity>> configurar2FA() async {
     try {
-      final config = await remoteDataSource.configurar2FA();
-      return Result.success(config.toEntity());
+      // 2FA no implementado aún, retornar error temporal
+      throw UnimplementedError('2FA no implementado aún');
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -150,8 +159,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> verificar2FA({required String codigo}) async {
     try {
-      await remoteDataSource.verificar2FA(codigo: codigo);
-      return Result.success(null);
+      // 2FA no implementado aún, retornar error temporal
+      throw UnimplementedError('2FA no implementado aún');
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -160,8 +169,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> deshabilitar2FA({required String password}) async {
     try {
-      await remoteDataSource.deshabilitar2FA(password: password);
-      return Result.success(null);
+      // 2FA no implementado aún, retornar error temporal
+      throw UnimplementedError('2FA no implementado aún');
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -170,8 +179,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> verificarCodigoRecuperacion({required String codigo}) async {
     try {
-      await remoteDataSource.verificarCodigoRecuperacion(codigo: codigo);
-      return Result.success(null);
+      // 2FA no implementado aún, retornar error temporal
+      throw UnimplementedError('2FA no implementado aún');
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -180,8 +189,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<List<String>>> generarCodigosRecuperacion() async {
     try {
-      final codigos = await remoteDataSource.generarCodigosRecuperacion();
-      return Result.success(codigos);
+      // 2FA no implementado aún, retornar error temporal
+      throw UnimplementedError('2FA no implementado aún');
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -190,7 +199,11 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<UsuarioAutenticadoEntity>> refrescarToken() async {
     try {
-      final usuario = await remoteDataSource.refrescarToken();
+      // Token refresh is handled automatically by Supabase
+      final usuario = await remoteDataSource.getCurrentUser();
+      if (usuario == null) {
+        throw Exception('Usuario no autenticado');
+      }
       return Result.success(usuario.toEntity());
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
@@ -200,8 +213,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<bool>> estaAutenticado() async {
     try {
-      final usuario = await remoteDataSource.obtenerUsuarioActual();
-      return Result.success(usuario?.estaAutenticado ?? false);
+      final usuario = await remoteDataSource.getCurrentUser();
+      return Result.success(usuario != null);
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -210,8 +223,37 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<UsuarioEntity>> obtenerPerfil() async {
     try {
-      final perfil = await remoteDataSource.obtenerPerfil();
-      return Result.success(perfil.toEntity());
+      final usuario = await remoteDataSource.getCurrentUser();
+      if (usuario == null) {
+        throw Exception('Usuario no autenticado');
+      }
+      
+      // Si el usuario tiene perfil, devolverlo
+      if (usuario.perfil != null) {
+        return Result.success(usuario.perfil!);
+      }
+      
+      // Si no tiene perfil, crear uno básico con la información disponible
+      final perfilBasico = UsuarioEntity(
+        id: usuario.id,
+        email: usuario.email,
+        rol: RolUsuario.paciente, // Rol por defecto
+        nombre: 'Usuario',
+        apellido: 'Sin Nombre',
+        telefono: null,
+        fechaNacimiento: null,
+        direccion: null,
+        nombreContactoEmergencia: null,
+        telefonoContactoEmergencia: null,
+        activo: true,
+        emailVerificado: usuario.emailVerificado,
+        requiere2FA: false,
+        creadoEn: usuario.creadoEn,
+        actualizadoEn: usuario.actualizadoEn,
+        ultimoLogin: null,
+      );
+      
+      return Result.success(perfilBasico);
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -228,16 +270,8 @@ class AuthRepositoryImpl implements AuthRepository {
     String? telefonoContactoEmergencia,
   }) async {
     try {
-      final perfil = await remoteDataSource.actualizarPerfil(
-        nombre: nombre,
-        apellido: apellido,
-        telefono: telefono,
-        fechaNacimiento: fechaNacimiento,
-        direccion: direccion,
-        nombreContactoEmergencia: nombreContactoEmergencia,
-        telefonoContactoEmergencia: telefonoContactoEmergencia,
-      );
-      return Result.success(perfil.toEntity());
+      // Profile update not implemented in simplified datasource
+      throw UnimplementedError('Actualización de perfil no implementada aún');
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -246,8 +280,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> eliminarCuenta({required String password}) async {
     try {
-      await remoteDataSource.eliminarCuenta(password: password);
-      return Result.success(null);
+      // Account deletion not implemented in simplified datasource
+      throw UnimplementedError('Eliminación de cuenta no implementada aún');
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -255,21 +289,17 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Stream<UsuarioAutenticadoEntity?> get streamEstadoAuth {
-    return remoteDataSource.streamEstadoAuth.map(
-      (usuario) => usuario?.toEntity(),
-    );
+    // Auth state stream not implemented in simplified datasource
+    // Return empty stream for now
+    return Stream.value(null);
   }
 
   @override
   Future<Result<bool>> verificarSesionValida() async {
     try {
-      final usuario = await remoteDataSource.obtenerUsuarioActual();
-      if (usuario == null) {
-        return Result.success(false);
-      }
-      
-      final esValida = usuario.estaAutenticado && !usuario.tokenExpirado;
-      return Result.success(esValida);
+      // Session validation simplified - just check if user exists
+      final usuario = await remoteDataSource.getCurrentUser();
+      return Result.success(usuario != null);
     } catch (e) {
       return Result.failure(_mapExceptionToFailure(e));
     }
@@ -278,7 +308,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<Map<String, dynamic>>> obtenerMetadatosSesion() async {
     try {
-      final usuario = await remoteDataSource.obtenerUsuarioActual();
+      final usuario = await remoteDataSource.getCurrentUser();
       if (usuario == null) {
         return Result.failure(const AuthenticationFailure(
           message: 'Usuario no autenticado',
@@ -300,6 +330,8 @@ class AuthRepositoryImpl implements AuthRepository {
       return Result.failure(_mapExceptionToFailure(e));
     }
   }
+
+
 
   /// Mapear excepción a failure
   Failure _mapExceptionToFailure(dynamic exception) {

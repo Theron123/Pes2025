@@ -47,15 +47,15 @@ enum PasswordValidationError {
       case PasswordValidationError.empty:
         return 'La contraseña es requerida';
       case PasswordValidationError.tooShort:
-        return 'La contraseña debe tener al menos 8 caracteres';
+        return 'Mínimo 8 caracteres';
       case PasswordValidationError.noUppercase:
-        return 'La contraseña debe contener al menos una letra mayúscula';
+        return 'Falta una letra mayúscula (A-Z)';
       case PasswordValidationError.noLowercase:
-        return 'La contraseña debe contener al menos una letra minúscula';
+        return 'Falta una letra minúscula (a-z)';
       case PasswordValidationError.noDigit:
-        return 'La contraseña debe contener al menos un número';
+        return 'Falta un número (0-9)';
       case PasswordValidationError.noSpecialChar:
-        return 'La contraseña debe contener al menos un carácter especial';
+        return 'Falta un carácter especial (!@#\$)';
     }
   }
 }

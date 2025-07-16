@@ -21,13 +21,42 @@ class UsuarioModel extends UsuarioEntity {
     super.ultimoLogin,
   });
 
-  /// Crear modelo desde JSON (respuesta de Supabase)
+  /// Crear modelo desde JSON (respuesta de Supabase tabla 'users' con columnas en inglés)
+  factory UsuarioModel.fromEnglishJson(Map<String, dynamic> json) {
+    return UsuarioModel(
+      id: json['id'] as String,
+      email: json['email'] as String,
+      rol: RolUsuario.values.firstWhere(
+        (e) => e.name == _mapRoleFromEnglish(json['role']),
+        orElse: () => RolUsuario.paciente,
+      ),
+      nombre: json['first_name'] as String,
+      apellido: json['last_name'] as String,
+      telefono: json['phone'] as String?,
+      fechaNacimiento: json['birth_date'] != null 
+          ? DateTime.parse(json['birth_date'] as String)
+          : null,
+      direccion: json['address'] as String?,
+      nombreContactoEmergencia: json['emergency_contact_name'] as String?,
+      telefonoContactoEmergencia: json['emergency_contact_phone'] as String?,
+      activo: json['active'] as bool? ?? true,
+      requiere2FA: json['requires_2fa'] as bool? ?? false,
+      emailVerificado: json['email_verified'] as bool? ?? false,
+      creadoEn: DateTime.parse(json['created_at'] as String),
+      actualizadoEn: DateTime.parse(json['updated_at'] as String),
+      ultimoLogin: json['last_login'] != null 
+          ? DateTime.parse(json['last_login'] as String)
+          : null,
+    );
+  }
+
+  /// Crear modelo desde JSON (respuesta de Supabase tabla 'usuarios' con columnas en español)
   factory UsuarioModel.fromJson(Map<String, dynamic> json) {
     return UsuarioModel(
       id: json['id'] as String,
       email: json['email'] as String,
       rol: RolUsuario.values.firstWhere(
-        (e) => e.name == json['rol'],
+        (e) => e.name == _mapRoleFromDatabase(json['rol']),
         orElse: () => RolUsuario.paciente,
       ),
       nombre: json['nombre'] as String,
@@ -48,6 +77,38 @@ class UsuarioModel extends UsuarioEntity {
           ? DateTime.parse(json['ultimo_login'] as String)
           : null,
     );
+  }
+
+  /// Mapear roles del inglés al español
+  static String _mapRoleFromEnglish(String englishRole) {
+    switch (englishRole) {
+      case 'admin':
+        return 'admin';
+      case 'therapist':
+        return 'terapeuta';
+      case 'receptionist':
+        return 'recepcionista';
+      case 'patient':
+        return 'paciente';
+      default:
+        return 'paciente';
+    }
+  }
+
+  /// Mapear roles de la base de datos al enum
+  static String _mapRoleFromDatabase(String databaseRole) {
+    switch (databaseRole) {
+      case 'admin':
+        return 'admin';
+      case 'terapeuta':
+        return 'terapeuta';
+      case 'recepcionista':
+        return 'recepcionista';
+      case 'paciente':
+        return 'paciente';
+      default:
+        return 'paciente';
+    }
   }
 
   /// Convertir a JSON para enviar a Supabase

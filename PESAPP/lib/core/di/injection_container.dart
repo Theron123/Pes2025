@@ -22,6 +22,7 @@ import '../../features/appointments/data/repositories/citas_repository_impl.dart
 import '../../features/appointments/domain/repositories/citas_repository.dart';
 import '../../features/appointments/domain/usecases/crear_cita_usecase.dart';
 import '../../features/appointments/domain/usecases/obtener_citas_por_paciente_usecase.dart';
+import '../../features/appointments/domain/usecases/obtener_todas_las_citas_usecase.dart';
 import '../../features/appointments/domain/usecases/actualizar_estado_cita_usecase.dart';
 import '../../features/appointments/presentation/bloc/citas_bloc.dart';
 
@@ -89,7 +90,7 @@ Future<void> _initAuth() async {
 
   // Data sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(
+    () => AuthRemoteDataSource(
       client: sl(),
     ),
   );
@@ -102,6 +103,7 @@ Future<void> _initCitas() async {
     () => CitasBloc(
       crearCitaUseCase: sl(),
       obtenerCitasPorPacienteUseCase: sl(),
+      obtenerTodasLasCitasUseCase: sl(),
       actualizarEstadoCitaUseCase: sl(),
     ),
   );
@@ -109,6 +111,7 @@ Future<void> _initCitas() async {
   // Use cases - Casos de uso del dominio de citas
   sl.registerLazySingleton(() => CrearCitaUseCase(sl()));
   sl.registerLazySingleton(() => ObtenerCitasPorPacienteUseCase(sl()));
+  sl.registerLazySingleton(() => ObtenerTodasLasCitasUseCase(sl()));
   sl.registerLazySingleton(() => ActualizarEstadoCitaUseCase(sl()));
 
   // Repository - Repositorio abstracto y su implementación

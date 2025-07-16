@@ -61,10 +61,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthClearState>(_onAuthClearState);
     on<AuthUserUpdated>(_onAuthUserUpdated);
 
-    // Escuchar cambios de estado de autenticación
-    _authStateSubscription = authRepository.streamEstadoAuth.listen(
+    // Escuchar cambios de estado de autenticación (con debounce)
+    _authStateSubscription = authRepository.streamEstadoAuth
+        .distinct() // Evitar eventos duplicados
+        .listen(
       (usuario) {
-        add(AuthUserUpdated(isAuthenticated: usuario != null));
+        // Solo disparar evento si el estado ha cambiado realmente
+        final isCurrentlyAuthenticated = state is AuthAuthenticated;
+        final shouldBeAuthenticated = usuario != null;
+        
+        if (isCurrentlyAuthenticated != shouldBeAuthenticated) {
+          add(AuthUserUpdated(isAuthenticated: shouldBeAuthenticated));
+        }
       },
     );
   }
@@ -80,9 +88,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
+    if (emit.isDone) return;
+    
     emit(AuthLoading());
 
     final result = await obtenerUsuarioActualUseCase.call();
+    
+    if (emit.isDone) return;
     
     if (result.isSuccess) {
       final usuario = result.value;
@@ -101,6 +113,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignInRequested event,
     Emitter<AuthState> emit,
   ) async {
+    if (emit.isDone) return;
+    
     emit(AuthLoading());
 
     final result = await iniciarSesionUseCase.call(
@@ -109,6 +123,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         password: event.password,
       ),
     );
+
+    if (emit.isDone) return;
 
     if (result.isSuccess) {
       emit(AuthAuthenticated(usuario: result.value!));
@@ -125,6 +141,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignUpRequested event,
     Emitter<AuthState> emit,
   ) async {
+    if (emit.isDone) return;
+    
     emit(AuthLoading());
 
     final result = await registrarUsuarioUseCase.call(
@@ -139,8 +157,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ),
     );
 
+    if (emit.isDone) return;
+
     if (result.isSuccess) {
-      emit(AuthAuthenticated(usuario: result.value!));
+      // Emitir estado de registro exitoso en lugar de autenticado
+      emit(AuthRegistrationSuccess(
+        mensaje: '¡Registro exitoso! Redirigiendo al inicio de sesión...',
+        email: event.email,
+      ));
     } else {
       emit(AuthError(
         mensaje: result.error?.message ?? 'Error al registrar usuario',
@@ -498,13 +522,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthUserUpdated event,
     Emitter<AuthState> emit,
   ) async {
+    if (emit.isDone) return;
+    
+    // Evitar múltiples actualizaciones si ya estamos en el estado correcto
+    if (event.isAuthenticated && state is AuthAuthenticated) {
+      return;
+    }
+    
+    if (!event.isAuthenticated && state is AuthUnauthenticated) {
+      return;
+    }
+    
     if (event.isAuthenticated) {
       final result = await obtenerUsuarioActualUseCase.call();
+      if (emit.isDone) return;
+      
       if (result.isSuccess && result.value != null) {
         emit(AuthAuthenticated(usuario: result.value!));
       }
     } else {
+      // ignore: non_constant_identifier_names
       emit(AuthUnauthenticated());
     }
   }
-} 
+}

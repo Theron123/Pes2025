@@ -1,22 +1,15 @@
 /// API configuration constants for Supabase integration
 class ApiConstants {
-  // Supabase Configuration (Environment variables should be used in production)
-  static const String supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://your-project.supabase.co', // Replace with actual URL
-  );
-  
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY', 
-    defaultValue: 'your-anon-key', // Replace with actual key
-  );
+  // Supabase Configuration - CORRECT CREDENTIALS
+  static const String supabaseUrl = 'https://kvcbafrudpznlkcbkbnv.supabase.co';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2Y2JhZnJ1ZHB6bmxrY2JrYm52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1OTc1MDMsImV4cCI6MjA2NzE3MzUwM30.VXZM4oPg3XsP-2y3GdmU1M2RSVOWlepPsVxqhqPY9wI';
 
   // Database Table Names
-  static const String usersTable = 'users';
-  static const String therapistsTable = 'therapists';
-  static const String appointmentsTable = 'appointments';
-  static const String auditLogsTable = 'audit_logs';
-  static const String notificationsTable = 'notifications';
+  static const String usersTable = 'usuarios';
+  static const String therapistsTable = 'terapeutas';
+  static const String appointmentsTable = 'citas';
+  static const String auditLogsTable = 'registros_auditoria';
+  static const String notificationsTable = 'notificaciones';
 
   // Storage Buckets
   static const String profileImagesBucket = 'profile-images';

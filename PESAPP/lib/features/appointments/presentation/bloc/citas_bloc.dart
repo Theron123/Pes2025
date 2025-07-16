@@ -4,6 +4,7 @@ import "../../../../shared/domain/entities/appointment_entity.dart";
 import "../../../../core/errors/failures.dart";
 import "../../domain/usecases/crear_cita_usecase.dart";
 import "../../domain/usecases/obtener_citas_por_paciente_usecase.dart";
+import "../../domain/usecases/obtener_todas_las_citas_usecase.dart";
 import "../../domain/usecases/actualizar_estado_cita_usecase.dart";
 
 part "citas_event.dart";
@@ -20,14 +21,17 @@ part "citas_state.dart";
 class CitasBloc extends Bloc<CitasEvent, CitasState> {
   final CrearCitaUseCase _crearCitaUseCase;
   final ObtenerCitasPorPacienteUseCase _obtenerCitasPorPacienteUseCase;
+  final ObtenerTodasLasCitasUseCase _obtenerTodasLasCitasUseCase;
   final ActualizarEstadoCitaUseCase _actualizarEstadoCitaUseCase;
 
   CitasBloc({
     required CrearCitaUseCase crearCitaUseCase,
     required ObtenerCitasPorPacienteUseCase obtenerCitasPorPacienteUseCase,
+    required ObtenerTodasLasCitasUseCase obtenerTodasLasCitasUseCase,
     required ActualizarEstadoCitaUseCase actualizarEstadoCitaUseCase,
   }) : _crearCitaUseCase = crearCitaUseCase,
        _obtenerCitasPorPacienteUseCase = obtenerCitasPorPacienteUseCase,
+       _obtenerTodasLasCitasUseCase = obtenerTodasLasCitasUseCase,
        _actualizarEstadoCitaUseCase = actualizarEstadoCitaUseCase,
        super(const CitasInitial()) {
     
@@ -204,15 +208,27 @@ class CitasBloc extends Bloc<CitasEvent, CitasState> {
     try {
       emit(const CitasLoading(mensaje: 'Cargando todas las citas...'));
 
-      // TODO: Implementar cuando exista el use case correspondiente
-      await Future.delayed(const Duration(seconds: 1));
-
-      emit(const CitasLoaded(
-        citas: [],
-        totalCitas: 0,
-        paginaActual: 1,
-        hayMasPaginas: false,
+      final result = await _obtenerTodasLasCitasUseCase(ObtenerTodasLasCitasParams(
+        estado: event.estado,
+        fechaDesde: event.fechaDesde,
+        fechaHasta: event.fechaHasta,
+        terapeutaId: event.terapeutaId,
+        limite: event.limite,
+        pagina: event.pagina,
       ));
+
+      if (result.isSuccess) {
+        final citas = result.value!;
+        
+        emit(CitasLoaded(
+          citas: citas,
+          totalCitas: citas.length,
+          paginaActual: event.pagina,
+          hayMasPaginas: citas.length >= event.limite,
+        ));
+      } else {
+        emit(_mapFailureToState(result.error!, 'cargar todas las citas'));
+      }
     } catch (e) {
       emit(CitasError(
         mensaje: 'Error al cargar todas las citas: $e',
@@ -245,6 +261,9 @@ class CitasBloc extends Bloc<CitasEvent, CitasState> {
 
   /// Mapear errores del domain layer a estados del BLoC
   CitasState _mapFailureToState(Failure failure, String operacion) {
+    // Agregar logging para debug
+    print('DEBUG CitasBloc: Error tipo ${failure.runtimeType}, mensaje: ${failure.message}');
+    
     switch (failure.runtimeType) {
       case ValidationFailure:
         final validationFailure = failure as ValidationFailure;
@@ -252,6 +271,7 @@ class CitasBloc extends Bloc<CitasEvent, CitasState> {
           mensaje: validationFailure.message,
           codigoError: 'VALIDATION_ERROR',
           numeroError: validationFailure.code ?? 0,
+          detalleError: validationFailure,
         );
       
       case AppointmentFailure:
@@ -260,14 +280,16 @@ class CitasBloc extends Bloc<CitasEvent, CitasState> {
           mensaje: appointmentFailure.message,
           codigoError: 'APPOINTMENT_ERROR',
           numeroError: appointmentFailure.code ?? 0,
+          detalleError: appointmentFailure,
         );
       
       case NetworkFailure:
         final networkFailure = failure as NetworkFailure;
         return CitasError(
-          mensaje: 'Error de conexion: ${networkFailure.message}',
+          mensaje: 'Error de conexión: ${networkFailure.message}',
           codigoError: 'NETWORK_ERROR',
           numeroError: networkFailure.code ?? 0,
+          detalleError: networkFailure,
         );
       
       case DatabaseFailure:
@@ -276,12 +298,23 @@ class CitasBloc extends Bloc<CitasEvent, CitasState> {
           mensaje: 'Error de base de datos: ${databaseFailure.message}',
           codigoError: 'DATABASE_ERROR',
           numeroError: databaseFailure.code ?? 0,
+          detalleError: databaseFailure,
+        );
+      
+      case ServerFailure:
+        final serverFailure = failure as ServerFailure;
+        return CitasError(
+          mensaje: 'Error del servidor: ${serverFailure.message}',
+          codigoError: 'SERVER_ERROR',
+          numeroError: serverFailure.code ?? 500,
+          detalleError: serverFailure,
         );
       
       default:
         return CitasError(
           mensaje: 'Error al $operacion: ${failure.message}',
           codigoError: 'UNKNOWN_ERROR',
+          numeroError: 9999,
           detalleError: failure,
         );
     }

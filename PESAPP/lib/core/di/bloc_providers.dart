@@ -4,6 +4,8 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/domain/entities/auth_user_entity.dart';
 import '../../features/appointments/presentation/bloc/citas_bloc.dart';
+import '../../features/therapists/presentation/bloc/terapeutas_bloc.dart';
+import '../../features/therapists/presentation/bloc/terapeutas_state.dart';
 import 'injection_container.dart' as di;
 
 /// Proveedores BLoC para la aplicación
@@ -32,6 +34,11 @@ class BlocProviders {
         // Citas BLoC
         BlocProvider<CitasBloc>(
           create: (context) => di.sl<CitasBloc>(),
+        ),
+        
+        // Terapeutas BLoC
+        BlocProvider<TerapeutasBloc>(
+          create: (context) => di.sl<TerapeutasBloc>(),
         ),
       ],
       child: child,
@@ -71,6 +78,12 @@ extension BlocProvidersExtension on BuildContext {
   /// Obtiene el estado actual del CitasBloc
   CitasState get citasState => read<CitasBloc>().state;
   
+  /// Obtiene el TerapeutasBloc del contexto actual
+  TerapeutasBloc get terapeutasBloc => read<TerapeutasBloc>();
+  
+  /// Obtiene el estado actual del TerapeutasBloc
+  TerapeutasState get terapeutasState => read<TerapeutasBloc>().state;
+  
   /// Verifica si el usuario está autenticado
   bool get isAuthenticated => authState is AuthAuthenticated;
   
@@ -88,6 +101,12 @@ extension BlocProvidersExtension on BuildContext {
   
   /// Verifica si las citas están cargando
   bool get isCitasLoading => citasState is CitasLoading;
+  
+  /// Verifica si hay terapeutas cargados en el estado
+  bool get hasTerapeutasLoaded => terapeutasState is TerapeutasLoaded;
+  
+  /// Verifica si los terapeutas están cargando
+  bool get isTerapeutasLoading => terapeutasState is TerapeutasLoading;
 }
 
 /// Mixin para widgets que necesitan acceso fácil a los BLoCs
@@ -127,6 +146,18 @@ mixin BlocAccessMixin {
   
   /// Verifica si las citas están cargando
   bool isCitasLoading(BuildContext context) => context.isCitasLoading;
+  
+  /// Obtiene el TerapeutasBloc del contexto
+  TerapeutasBloc getTerapeutasBloc(BuildContext context) => context.terapeutasBloc;
+  
+  /// Obtiene el estado actual de terapeutas
+  TerapeutasState getTerapeutasState(BuildContext context) => context.terapeutasState;
+  
+  /// Verifica si hay terapeutas cargados
+  bool hasTerapeutasLoaded(BuildContext context) => context.hasTerapeutasLoaded;
+  
+  /// Verifica si los terapeutas están cargando
+  bool isTerapeutasLoading(BuildContext context) => context.isTerapeutasLoading;
 }
 
 /// Configuración de proveedores para testing
@@ -138,6 +169,7 @@ class TestBlocProviders {
     required Widget child,
     AuthBloc? authBloc,
     CitasBloc? citasBloc,
+    TerapeutasBloc? terapeutasBloc,
   }) {
     return MultiBlocProvider(
       providers: [
@@ -146,6 +178,9 @@ class TestBlocProviders {
         ),
         BlocProvider<CitasBloc>(
           create: (context) => citasBloc ?? _createMockCitasBloc(),
+        ),
+        BlocProvider<TerapeutasBloc>(
+          create: (context) => terapeutasBloc ?? _createMockTerapeutasBloc(),
         ),
       ],
       child: child,
@@ -164,5 +199,12 @@ class TestBlocProviders {
     // Implementación mockeada para testing
     // TODO: Implementar con mockito o similar
     throw UnimplementedError('Mock CitasBloc no implementado');
+  }
+  
+  /// Crea un TerapeutasBloc mockeado para testing
+  static TerapeutasBloc _createMockTerapeutasBloc() {
+    // Implementación mockeada para testing
+    // TODO: Implementar con mockito o similar
+    throw UnimplementedError('Mock TerapeutasBloc no implementado');
   }
 } 

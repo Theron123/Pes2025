@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../constants/app_constants.dart';
+import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
@@ -9,9 +8,20 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/appointments/presentation/pages/citas_lista_page.dart';
+import '../../features/appointments/presentation/pages/todas_citas_page.dart';
 import '../../features/appointments/presentation/pages/crear_cita_page.dart';
 import '../../features/appointments/presentation/pages/cita_detalles_page.dart';
+import '../../features/appointments/presentation/bloc/citas_bloc.dart';
+import '../../features/therapists/presentation/pages/terapeutas_lista_page.dart';
+import '../../features/therapists/presentation/pages/terapeuta_detalles_page.dart';
+import '../../features/therapists/presentation/pages/crear_terapeuta_page.dart';
+import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../shared/domain/entities/appointment_entity.dart';
+import '../../shared/domain/entities/therapist_entity.dart';
+import '../../shared/presentation/widgets/dashboard_citas_widget.dart';
+import '../constants/app_constants.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 import 'route_names.dart';
 
 /// Configuración de rutas de la aplicación usando GoRouter
@@ -26,11 +36,11 @@ class AppRouter {
     initialLocation: RouteNames.splash,
     redirect: _authGuard,
     routes: [
-      // Splash Screen
+      // Login Screen (Initial Screen)
       GoRoute(
         path: RouteNames.splash,
         name: 'splash',
-        builder: (context, state) => const SplashScreen(),
+        builder: (context, state) => const LoginScreen(),
       ),
 
       // Authentication Routes
@@ -85,6 +95,12 @@ class AppRouter {
       ),
       
       GoRoute(
+        path: RouteNames.allAppointments,
+        name: 'all-appointments',
+        builder: (context, state) => const TodasCitasPage(),
+      ),
+      
+      GoRoute(
         path: RouteNames.createAppointment,
         name: 'create-appointment',
         builder: (context, state) => const CrearCitaPage(),
@@ -104,14 +120,35 @@ class AppRouter {
         },
       ),
       
-      // Placeholder Routes
+      // Therapist Routes
       GoRoute(
         path: RouteNames.therapists,
         name: 'therapists',
-        builder: (context, state) => const PlaceholderPage(
-          title: 'Terapeutas',
-          message: 'Gestión de terapeutas',
-        ),
+        builder: (context, state) => const TerapeutasListaPage(),
+      ),
+      
+      GoRoute(
+        path: RouteNames.createTherapist,
+        name: 'create-therapist',
+        builder: (context, state) => const CrearTerapeutaPage(),
+      ),
+      
+      GoRoute(
+        path: '${RouteNames.therapistDetails}/:terapeutaId',
+        name: 'therapist-details',
+        builder: (context, state) {
+          final terapeutaId = state.pathParameters['terapeutaId'];
+          if (terapeutaId == null) {
+            return const ErrorPage(
+              error: 'ID del terapeuta no válido',
+            );
+          }
+          final terapeuta = state.extra as TerapeutaEntity?;
+          return TerapeutaDetallesPage(
+            terapeutaId: terapeutaId,
+            terapeuta: terapeuta,
+          );
+        },
       ),
       
       GoRoute(
@@ -184,13 +221,13 @@ class AppRouter {
     
     final currentPath = state.uri.path;
     
-    // Si el estado es inicial o loading, mostrar splash
-    if (authState is AuthInitial || authState is AuthLoading) {
-      if (currentPath != RouteNames.splash) {
-        return RouteNames.splash;
+          // Si el estado es inicial o loading, mostrar login screen
+      if (authState is AuthInitial || authState is AuthLoading) {
+        if (currentPath != RouteNames.splash) {
+          return RouteNames.splash;
+        }
+        return null;
       }
-      return null;
-    }
     
     // Si estamos en una ruta protegida y no estamos autenticados
     if (protectedRoutes.contains(currentPath) && authState is! AuthAuthenticated) {
@@ -199,6 +236,10 @@ class AppRouter {
     
     // Si estamos autenticados y tratamos de acceder a rutas públicas
     if (authState is AuthAuthenticated && publicRoutes.contains(currentPath)) {
+      // Permitir acceso a signIn y signUp para flujos especiales
+      if (currentPath == RouteNames.signIn || currentPath == RouteNames.signUp) {
+        return null; // Permitir navegación
+      }
       return RouteNames.dashboard;
     }
     
@@ -215,15 +256,15 @@ class AppRouter {
   }
 }
 
-/// Pantalla de splash para mostrar mientras se carga la aplicación
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+/// Pantalla de login inicial para mostrar mientras se carga la aplicación
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -310,7 +351,7 @@ class _SplashScreenState extends State<SplashScreen>
                         color: Colors.white,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -340,7 +381,7 @@ class _SplashScreenState extends State<SplashScreen>
                     Text(
                       'Sistema de Gestión de Masajes',
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -354,7 +395,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: CircularProgressIndicator(
                         strokeWidth: 3,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white.withOpacity(0.8),
+                          Colors.white.withValues(alpha: 0.8),
                         ),
                       ),
                     ),
@@ -399,7 +440,7 @@ class MainAppScreen extends StatelessWidget {
         builder: (context, state) {
           if (state is AuthAuthenticated) {
             return SafeArea(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,22 +486,37 @@ class MainAppScreen extends StatelessWidget {
                     
                     const SizedBox(height: 32),
                     
+                    // Dashboard de citas
+                    const DashboardCitasWidget(),
+                    
+                    const SizedBox(height: 24),
+                    
                     // Opciones de navegación
-                    Expanded(
-                      child: BlocBuilder<AuthBloc, AuthState>(
-                        builder: (context, state) {
-                          if (state is AuthAuthenticated) {
-                            final userRole = state.usuario.rol?.name.toLowerCase() ?? 'patient';
-                            return GridView.count(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                              children: _buildNavigationCards(context, userRole),
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
+                    Text(
+                      'Opciones',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        if (state is AuthAuthenticated) {
+                          final userRole = state.usuario.rol?.name.toLowerCase() ?? 'patient';
+                          return GridView.count(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: _buildNavigationCards(context, userRole),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
                     ),
                   ],
                 ),
